@@ -1,0 +1,526 @@
+// Insurance CRM — data model
+// Provider: SQLite (a single local file, ./prisma/dev.db) for a zero-install,
+// private, single-agent setup. SQLite has no native enums, so status/category
+// fields are plain strings; the allowed values are documented in comments and
+// enforced in app code (lib/enums.ts). Money is stored as Float (INR rupees).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// The agent using the CRM. Single row today, but kept as a table so we can
+// add team members later without reshaping the schema (team-ready).
+model Agent {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+}
+
+// A family unit. Lets us insure & service a whole household together.
+model Household {
+  id        String   @id @default(cuid())
+  name      String // e.g. "Sharma Family"
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  clients   Client[]
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  altPhone    String? // alternative phone number
+  email       String?
+  address     String?
+  dob         DateTime?
+  occupation  String?
+  incomeBand  String? // e.g. "<5L", "5-10L", "10-25L", "25L+"
+  gender      String? // "male" | "female" | "other"
+  // Relationship to the household head: "self" | "spouse" | "son" | "daughter" | "parent" | "other"
+  relationship String?
+  tags        String? // comma-separated, e.g. "high-value,renewal-due"
+  notes       String?
+  instagram   String? // optional social handles (display/open only)
+  linkedin    String?
+  facebook    String?
+  archivedAt  DateTime? // soft-delete: non-null = archived/recoverable, hidden from lists
+  deletedAt   DateTime? // soft-delete for demo/testing: non-null = deleted, can be wiped later
+  createdAt   DateTime @default(now())
+
+  householdId String?
+  household   Household? @relation(fields: [householdId], references: [id])
+
+  vault          ClientVault?
+  documents      Document[]
+  policies       Policy[] // policies where this client is the PROPOSER (owner/payer)
+  insuredOn      PolicyInsured[] @relation("InsuredOn") // policies that cover this member
+  leads          Lead[]
+  tasks          Task[]
+  communications Communication[]
+  claims         Claim[]
+
+  @@index([phone])
+  @@index([name])
+}
+
+// Secure KYC store. Aadhaar & PAN are stored ENCRYPTED (AES-256-GCM) — never
+// in plaintext. The app masks them on screen (last 4 digits) and decrypts only
+// on explicit reveal.
+model ClientVault {
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  aadhaarEnc      String? // encrypted Aadhaar number
+  panEnc          String? // encrypted PAN number
+  whatsappNumber  String?
+  postalAddress   String?
+  dob             DateTime?
+
+  nomineeName     String?
+  nomineeRelation String?
+  nomineeDob      DateTime?
+
+  pehchaanKycId   String? // HDFC ERGO "Pehchaan KYC ID" (e.g. EPFYC1GJMF) — HDFC ERGO clients only
+  insurerClientId String? // other insurer KYC/Client IDs (e.g. Care Health "Client ID" F1967866)
+
+  updatedAt       DateTime @updatedAt
+}
+
+// Uploaded files (Aadhaar card, PAN card, policy PDF, photo, etc.).
+// The file bytes on disk are ENCRYPTED at rest; storagePath points to the
+// encrypted blob under /storage. type: "aadhaar" | "pan" | "address_proof" |
+// "photo" | "proposal" | "policy" | "claim" | "nominee_id_proof" |
+// "birth_certificate" | "other"
+model Document {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        String
+  label       String?
+  fileName    String
+  storagePath String // path to the encrypted blob
+  mimeType    String
+  sizeBytes   Int
+  policyId    String? // optional link to a policy (e.g. that policy's PDF)
+  policyVersionId String? // optional link to a specific yearly version
+  deletedAt   DateTime? // soft-delete for demo/testing
+  uploadedAt  DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// stage: "new" | "contacted" | "quoted" | "won" | "lost"
+// source: "referral" | "social" | "walk_in" | "website" | "other"
+model Lead {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  name      String
+  phone     String?
+  source    String   @default("referral")
+  stage     String   @default("new")
+  interest  String? // line they're interested in: "life" | "term" | "health"
+  expectedPremium Float?
+  score     Int? // AI lead score 0-100 (Phase 4)
+  scoreReason String?
+  notes     String?
+  quotedAt  DateTime? // when the lead first entered the "quoted" stage — drives the day 2/5/10 follow-up autopilot
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// line: "health" | "term" | "life" | "personal_accident" | "motor" | "mutual_fund"
+// status: "active" | "lapsed" | "matured" | "surrendered"
+// frequency: "monthly" | "quarterly" | "half_yearly" | "annual"
+// paymentMode: "auto_debit" | "online" | "cheque" | "cash" | "agent"
+// `clientId` is the PROPOSER (owner/payer). Covered people are in `insuredMembers`.
+model Policy {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  line         String
+  carrier      String // insurer, e.g. "HDFC ERGO", "Care Health"
+  policyNumber String   @unique
+  planName     String? // product / plan, e.g. "OPTIMA RESTORE", "Care Supreme"
+  variant      String? // plan variant / vehicle variant
+  sumAssured   Float // sum insured / sum assured
+  premium      Float
+  policyType   String? // "individual" | "floater" (health) — auto-detected, editable
+  deductible   Float? // health deductible / co-pay, if any
+  ncbValue     Float? // no-claim bonus carried (health/motor)
+  frequency    String   @default("annual")
+  paymentMode  String   @default("online")
+  tenureYears  Int? // policy term length in years
+  firstInception DateTime? // date the policy ORIGINALLY started (may be years ago)
+  startDate    DateTime // current term start
+  renewalDate  DateTime // next premium/renewal due date
+  maturityDate DateTime?
+  previousPolicyNumber String?
+  status       String   @default("active")
+  renewalUrl   String? // optional insurer renewal/payment link, sent with reminders
+  nomineeName     String?
+  nomineeRelation String?
+  notes        String?
+  source       String? // "manual" | "import" (where the record came from)
+  deletedAt    DateTime? // soft-delete for demo/testing
+  createdAt    DateTime @default(now())
+
+  renewals       Renewal[]
+  claims         Claim[]
+  commission     Commission?
+  insuredMembers PolicyInsured[]
+  versions       PolicyVersion[]
+
+  @@index([clientId])
+  @@index([renewalDate])
+}
+
+// One yearly version of a Policy (2024 copy, 2025 copy, …). HDFC changes the
+// policy number each renewal, linked via previousPolicyNumber. Each version can
+// carry its own policy copy + renewal notice document.
+// status: "active" | "renewed" | "lapsed" | "cancelled"
+// source: "excel" | "policy_copy" | "renewal_notice" | "manual"
+model PolicyVersion {
+  id                   String    @id @default(cuid())
+  policyId             String
+  policy               Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policyNumber         String
+  yearLabel            String? // e.g. "2025-26"
+  premium              Float?
+  sumInsured           Float?
+  startDate            DateTime?
+  endDate              DateTime?
+  dueDate              DateTime?
+  status               String    @default("active")
+  previousPolicyNumber String?
+  source               String    @default("manual")
+  policyCopyDocId      String? // -> Document.id (the year's policy copy)
+  renewalNoticeDocId   String? // -> Document.id (the year's renewal notice)
+  extracted            String? // JSON of raw extracted fields
+  createdAt            DateTime  @default(now())
+
+  @@index([policyId])
+  @@index([policyNumber])
+}
+
+// The bulk-import review queue: every uploaded PDF lands here with its extracted
+// fields + best match + confidence, then is auto-attached or sent to review.
+// detectedType: "policy_copy" | "renewal_notice" | "unknown"
+// status: "attached" | "review" | "unmatched"
+model IngestDoc {
+  id               String   @id @default(cuid())
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  storagePath      String // encrypted blob in /storage
+  detectedType     String   @default("unknown")
+  insurer          String?
+  extracted        String? // JSON of extracted fields
+  matchedHolderId  String?
+  matchedPolicyId  String?
+  matchedVersionId String?
+  matchConfidence  Int      @default(0)
+  status           String   @default("review")
+  note             String?
+  createdAt        DateTime @default(now())
+
+  @@index([status])
+}
+
+// People covered by a policy (a floater may cover several). Links to a Client
+// record when one exists, but always keeps the raw name so import never blocks.
+// relation: "Self" | "Spouse"/"Wife"/"Husband" | "Son" | "Daughter" | "Father" | "Mother" | "Other"
+model PolicyInsured {
+  id       String  @id @default(cuid())
+  policyId String
+  policy   Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation("InsuredOn", fields: [clientId], references: [id])
+  name     String
+  relation String?
+  age      Int?
+  dob      DateTime? // family member birthday (for reminders 2 days before)
+
+  @@index([policyId])
+}
+
+// status: "pending" | "reminded" | "renewed" | "lapsed"
+model Renewal {
+  id         String   @id @default(cuid())
+  policyId   String
+  policy     Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  dueDate    DateTime
+  amount     Float
+  status     String   @default("pending")
+  remindedAt DateTime?
+  renewedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([dueDate])
+  @@index([status])
+}
+
+// Sent-log for the renewal reminder cadence. A row is inserted only when a
+// reminder for a given policy + renewal cycle + step is actually sent, so the
+// system never resends the same step and auto-stops once a policy is renewed
+// (the cycleDate changes when the renewal date rolls forward).
+// step: "m1" | "w1" | "d5" | "d3" | "d2" | "due" | "grace1" | "grace2"
+model RenewalReminder {
+  id           String   @id @default(cuid())
+  policyId     String
+  cycleDate    DateTime
+  step         String
+  scheduledFor DateTime
+  sentAt       DateTime @default(now())
+  channel      String   @default("whatsapp")
+
+  @@index([policyId, cycleDate])
+}
+
+// status: "intimated" | "documents" | "processing" | "settled" | "rejected"
+model Claim {
+  id          String   @id @default(cuid())
+  policyId    String
+  policy      Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  claimNumber String?
+  reason      String?
+  amount      Float?
+  status      String   @default("intimated")
+  notes       String?
+  intimatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Endorsement Tracker (Phase 5) — a mid-term change to an in-force policy.
+// type: "address_change" | "nominee_change" | "sum_insured" | "member_add" |
+//       "member_remove" | "vehicle_transfer" | "other"
+// status: "requested" | "submitted" | "approved" | "rejected"
+model Endorsement {
+  id          String    @id @default(cuid())
+  policyId    String
+  clientId    String
+  type        String
+  description String?
+  status      String    @default("requested")
+  referenceNo String? // insurer endorsement reference
+  requestedAt DateTime  @default(now())
+  resolvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([policyId])
+  @@index([clientId])
+}
+
+// Collection module (Phase 5) — premium collection ledger. One row per policy
+// premium cycle (keyed by cycleDate = the renewal/due date it settles), so the
+// agent can see money-to-collect vs collected. Complements Renewal (which tracks
+// whether the policy renewed) — this tracks whether the premium was PAID.
+// status: "pending" | "partial" | "collected"
+model Collection {
+  id              String    @id @default(cuid())
+  policyId        String
+  clientId        String
+  cycleDate       DateTime // the premium due date this record settles
+  expectedAmount  Float
+  collectedAmount Float     @default(0)
+  status          String    @default("pending")
+  mode            String? // "cash" | "online" | "cheque" | "auto_debit" | "agent"
+  collectedAt     DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@unique([policyId, cycleDate])
+  @@index([clientId])
+}
+
+// type: "call" | "follow_up" | "meeting" | "renewal" | "birthday" | "other"
+// priority: "low" | "medium" | "high"
+model Task {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  policyId  String? // optional link to a policy (no FK — local app)
+  title     String
+  type      String   @default("follow_up")
+  priority  String   @default("medium")
+  dueDate   DateTime
+  done      Boolean  @default(false)
+  status    String   @default("open") // "open" | "completed" | "needs_review" | "call" | "other"
+  completedAt DateTime?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([dueDate])
+  @@index([done])
+}
+
+// Remembers manual import matches so the same row auto-matches next time.
+// key: "pol:<policyNumber>" | "kyc:<kycId>" | "name:<normalized name>"
+model ImportMatch {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  clientId  String
+  createdAt DateTime @default(now())
+}
+
+// Single-row app settings (key fields, not a generic KV). id is always "singleton".
+model AppSettings {
+  id                       String   @id @default("singleton")
+  birthdayMemberOffsetDays Int      @default(1) // greet non-proposer members this many days early
+  renewalLeadDays          Int      @default(15) // surface renewals this many days ahead
+  gracePeriodDays          Int      @default(15) // days after due date a policy can still renew before it lapses
+  appPasscode              String?  // optional encrypted passphrase to open the app (soft gate)
+  myLinkedin               String?
+  myInstagram              String?
+  myYoutube                String?
+  lastBackupAt             DateTime?
+  // Phase 3 automation engine (item 12). The engine ticks in-process while the
+  // server is up (see lib/engine.ts). It never messages clients — only the
+  // agent's own number gets the daily digest. Client-facing auto-send (item 13)
+  // will add its own approve/auto dial later.
+  engineEnabled            Boolean  @default(false) // master switch for the background engine
+  agentWhatsApp            String?  // number the daily digest is sent to (defaults to the connected WhatsApp number)
+  digestHour               Int      @default(8)     // local hour (0–23) to send the daily digest
+  lastDigestOn             String?  // YYYY-MM-DD guard so the digest sends at most once per day
+  lastEngineTickAt         DateTime? // observability: when the engine last ran a tick
+  // Phase 3 auto-send cadence (item 13). Per-category dial + global safety limits.
+  // Mode per category: "approve" (default — queued for a one-tap send) | "auto"
+  // (the engine sends it, within the limits below) | "off". Client-facing
+  // auto-sends only ever run when engineEnabled is on AND the category is "auto".
+  renewalSendMode          String   @default("approve") // "approve" | "auto" | "off"
+  autoSendDailyCap         Int      @default(40)   // max automated client sends per calendar day
+  quietStart               Int      @default(21)   // no auto-sends from this hour (24h) …
+  quietEnd                 Int      @default(9)     // … until this hour (wraps midnight when start > end)
+  lastAutoSendAt           DateTime?
+  // Phase 3 items 14–18. Each mode is "off" | "approve" | "auto" and ships OFF.
+  // approve = queued to the Approvals panel for a one-tap send; auto = the engine
+  // sends within the same quiet-hours + daily-cap limits as renewals.
+  inboundMode              String   @default("off") // "off" | "log" | "triage" — two-way WhatsApp (item 14)
+  selfServiceMode          String   @default("off") // "off" | "approve" | "auto" — client self-service (item 15)
+  quoteSendMode            String   @default("off") // quote follow-up autopilot (item 17)
+  winbackMode              String   @default("off") // lapsed win-back (item 17)
+  claimSeqMode             String   @default("off") // claim hand-holding (item 18)
+  delightMode              String   @default("off") // post-renewal thank-you + anniversary recap (item 18)
+  watchedFolderEnabled     Boolean  @default(false) // document auto-intake from a folder (item 16)
+  watchedFolderPath        String?  // defaults to DATA_DIR/inbox
+  imapEnabled              Boolean  @default(false) // document auto-intake from a mailbox (item 16)
+  imapHost                 String?
+  imapPort                 Int      @default(993)
+  imapUser                 String?
+  imapPassEnc              String?  // encrypted mailbox password
+  updatedAt                DateTime @updatedAt
+}
+
+// Unified approve-queue + audit for the Phase-3 automations added in items
+// 14–18 (renewal reminders keep their own RenewalReminder log). In approve
+// mode a row is created "pending" and shown in the Approvals panel for a
+// one-tap send; in auto mode the engine sends it and records it "sent".
+// category: "quote" | "winback" | "claim" | "thankyou" | "anniversary" | "selfservice"
+model Outbox {
+  id        String    @id @default(cuid())
+  category  String
+  clientId  String?
+  leadId    String?
+  phone     String?
+  title     String    // short label for the Approvals UI
+  message   String
+  docId     String?   // optional Document.id to attach on send
+  dedupeRef String    @unique // idempotency: never queue the same touch twice
+  status    String    @default("pending") // "pending" | "sent" | "dismissed" | "failed"
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status])
+}
+
+// Audit + daily-cap counter for messages the engine sent automatically
+// (Phase 3, item 13). One row per automated send attempt across all categories.
+model AutoSend {
+  id        String   @id @default(cuid())
+  category  String   // "renewal" | (future: "birthday" | "quote" | …)
+  clientId  String?
+  channel   String   @default("whatsapp")
+  status    String   // "sent" | "failed"
+  detail    String?  // step/policy ref on success, error text on failure
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Security audit trail — sensitive events only (vault reveals, unlocks,
+// passcode changes, restores). Local, append-only.
+model AuditLog {
+  id        String   @id @default(cuid())
+  event     String   // "vault_reveal" | "unlock" | "unlock_failed" | "passcode_set" | "restore"
+  detail    String?  // e.g. which field / which client (never the value itself)
+  clientId  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// channel: "call" | "whatsapp" | "email" | "meeting"
+// direction: "outbound" | "inbound"
+model Communication {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  channel    String
+  direction  String   @default("outbound")
+  subject    String?
+  body       String?
+  outcome    String?
+  // For WhatsApp sends (Phase 3): "queued" | "sent" | "delivered" | "failed"
+  status     String?
+  occurredAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// status: "pending" | "partial" | "received"
+model Commission {
+  id             String   @id @default(cuid())
+  policyId       String   @unique
+  policy         Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  expectedAmount Float
+  receivedAmount Float    @default(0)
+  status         String   @default("pending")
+  payoutDate     DateTime?
+  notes          String?
+}
+
+// Reusable WhatsApp message templates.
+// category: "onboarding" | "renewal" | "claim"
+// language: "en" | "te"
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  language  String   @default("en")
+  body      String // supports {{name}}, {{policyNumber}}, {{dueDate}}, {{amount}}
+  createdAt DateTime @default(now())
+}
+
+// Cached AI output (briefings, scores, suggestions) so we don't re-spend tokens.
+// type: "daily_briefing" | "lead_score" | "lapse_risk" | "next_best_action" | "cross_sell"
+model AIInsight {
+  id        String   @id @default(cuid())
+  type      String
+  clientId  String?
+  payload   String // JSON string
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}

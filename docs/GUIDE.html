@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insurance CRM — Complete Guide</title>
+<style>
+  :root{ --ink:#211f1a; --ink2:#4a463d; --ink3:#7c766a; --paper:#faf8f3; --card:#fff; --line:#e8e3d8; --accent:#5b53d8; --accent-soft:#efeefc; --emerald:#0f9d6b; --amber:#b7791f; --red:#c0392b; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.65 -apple-system,Segoe UI,Inter,Roboto,Helvetica,Arial,sans-serif; }
+  .wrap{ max-width:860px; margin:0 auto; padding:40px 22px 80px; }
+  h1{ font-size:30px; margin:0 0 6px; letter-spacing:-.02em; }
+  h2{ font-size:22px; margin:44px 0 12px; padding-top:18px; border-top:1px solid var(--line); letter-spacing:-.01em; }
+  h3{ font-size:17px; margin:26px 0 6px; }
+  p{ margin:10px 0; color:var(--ink2); }
+  .lead{ font-size:17px; color:var(--ink2); }
+  .note{ background:var(--accent-soft); border:1px solid #ddd9f7; border-radius:12px; padding:12px 16px; margin:16px 0; color:#3b3766; font-size:14.5px; }
+  figure{ margin:18px 0 6px; }
+  img{ width:100%; border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 24px rgba(40,36,28,.08); display:block; }
+  figcaption{ font-size:13px; color:var(--ink3); margin-top:8px; text-align:center; }
+  table{ border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; }
+  th,td{ text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ color:var(--ink3); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  code{ background:#efece4; border-radius:5px; padding:1px 6px; font-size:13.5px; }
+  pre{ background:#26241f; color:#f4f1ea; border-radius:12px; padding:16px 18px; overflow:auto; font-size:13px; line-height:1.5; }
+  ol,ul{ color:var(--ink2); }
+  li{ margin:5px 0; }
+  .pill{ display:inline-block; background:var(--accent); color:#fff; font-size:11px; padding:2px 9px; border-radius:999px; vertical-align:middle; }
+  .toc a{ color:var(--accent); text-decoration:none; }
+  .toc{ font-size:14.5px; }
+  strong{ color:var(--ink); }
+  hr{ border:none; border-top:1px solid var(--line); margin:36px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Insurance CRM — Complete Guide</h1>
+  <p class="lead">A plain-English tour of the whole app: what every screen does, how the day-to-day flows work, and where your data lives.</p>
+
+  <div class="note"><strong>The one-line summary:</strong> everything runs on <em>your</em> PC. Your client data (including Aadhaar/PAN) is stored locally and encrypted. The only things that ever leave are (1) AI requests to Claude — and only non-sensitive facts, never Aadhaar/PAN — and (2) WhatsApp messages you send, from your own number.</div>
+
+  <p class="toc"><strong>Jump to:</strong>
+    <a href="#big">Big picture</a> ·
+    <a href="#screens">The screens</a> ·
+    <a href="#flows">Everyday flows</a> ·
+    <a href="#data">How your data flows</a> ·
+    <a href="#disk">Where things live</a> ·
+    <a href="#safe">Keeping it safe</a> ·
+    <a href="#run">Running it</a>
+  </p>
+
+  <h2 id="big">1. The big picture</h2>
+  <p>You open the app in your browser at <code>http://localhost:3000</code>. Behind the scenes a small program (the “server”) runs on your own Windows PC, reads and writes a single database file, and shows you the screens below. Nothing is on the internet unless you send it.</p>
+  <figure><img src="screenshots/01-dashboard.png" alt="Dashboard"><figcaption>The dashboard — your morning command centre.</figcaption></figure>
+  <p>The <strong>left sidebar</strong> is your map:</p>
+  <table>
+    <tr><th>Menu</th><th>What it's for</th></tr>
+    <tr><td><strong>Dashboard</strong></td><td>Your morning overview — what needs attention, money at risk, today's plan</td></tr>
+    <tr><td><strong>Policy Holders</strong></td><td>Every client, their policies, documents, family and KYC vault</td></tr>
+    <tr><td><strong>Policies</strong></td><td>All policies across all clients in one list</td></tr>
+    <tr><td><strong>Renewals</strong></td><td>Everything coming up or overdue, with one-click reminders</td></tr>
+    <tr><td><strong>Import</strong></td><td>Bulk-load renewals from Excel + auto-read policy/renewal PDFs</td></tr>
+    <tr><td><strong>Leads</strong></td><td>Your sales pipeline (New → Contacted → Quoted → Won/Lost)</td></tr>
+    <tr><td><strong>Tasks</strong></td><td>Your to-dos and reminders</td></tr>
+    <tr><td><strong>WhatsApp</strong></td><td>Connect your number and send messages</td></tr>
+    <tr><td><strong>AI Assistant</strong></td><td>Ask questions about your book and draft messages</td></tr>
+    <tr><td><strong>Settings</strong></td><td>Backups, your details, reminder preferences</td></tr>
+  </table>
+
+  <h2 id="screens">2. The screens, one by one</h2>
+
+  <h3>Policy Holders</h3>
+  <p>The master list of everyone you serve. Search by name or phone; click anyone to open their folder.</p>
+  <figure><img src="screenshots/02-policy-holders.png" alt="Policy Holders"><figcaption>Your client list.</figcaption></figure>
+
+  <h3>The Policy-Holder folder (profile)</h3>
+  <p>Everything about one person, in tabs: <strong>Overview</strong>, <strong>Policies</strong>, <strong>Documents</strong> (bucketed: Policy Copies / Renewal Notices / KYC / Claims / Other), <strong>Vault</strong> (Aadhaar/PAN masked, revealed only on click), <strong>Family</strong>, and <strong>Timeline</strong>. The buttons up top — <strong>✨ Draft with AI</strong>, <strong>WhatsApp</strong>, <strong>Call</strong>, <strong>Edit</strong> — act on that person.</p>
+  <figure><img src="screenshots/03-profile.png" alt="Policy holder profile"><figcaption>A Policy Holder's folder.</figcaption></figure>
+
+  <h3>Renewals</h3>
+  <p>The board you'll live in. Grouped <strong>Overdue / This week / This month / Later</strong>, with the premium-at-risk total. Each row has a <strong>✨ Draft</strong> button, a quick WhatsApp link, and <strong>Renewed</strong> (which rolls the due date forward a year).</p>
+  <figure><img src="screenshots/04-renewals.png" alt="Renewals"><figcaption>Renewals board.</figcaption></figure>
+
+  <h3>Import</h3>
+  <p>Bulk-load two ways: <strong>Excel</strong> (HDFC ERGO sheets, auto-matched, never duplicated) and <strong>policy/renewal PDFs</strong> (the app reads each one, auto-attaches confident matches, and puts the rest in a <strong>Review Queue</strong>).</p>
+  <figure><img src="screenshots/07-import.png" alt="Import"><figcaption>Excel + PDF auto-ingestion.</figcaption></figure>
+
+  <h3>Leads</h3>
+  <p>Your sales pipeline as columns. Move a lead forward one tap at a time, mark it lost, message them, or — when you win — <strong>convert it into a Policy Holder</strong> in one click.</p>
+  <figure><img src="screenshots/05-leads.png" alt="Leads"><figcaption>Leads pipeline.</figcaption></figure>
+
+  <h3>Tasks</h3>
+  <p>Simple to-dos grouped Overdue / Today / Upcoming / Done. Birthdays appear here automatically.</p>
+  <figure><img src="screenshots/06-tasks.png" alt="Tasks"><figcaption>Tasks.</figcaption></figure>
+
+  <h3>WhatsApp</h3>
+  <p>Link your own WhatsApp once (scan a QR with your phone), then send messages and policy files straight from the CRM. Every send is <strong>logged</strong> to that client's history.</p>
+  <figure><img src="screenshots/08-whatsapp.png" alt="WhatsApp"><figcaption>Your own number, no middleman.</figcaption></figure>
+
+  <h3>AI Assistant</h3>
+  <p>A chat that can see your live book (names, policies, renewals, leads, tasks — <strong>never</strong> your Aadhaar/PAN). Ask things like “Who has no health cover?” or “Draft a renewal reminder for my most overdue client in Telugu.”</p>
+  <figure><img src="screenshots/09-assistant.png" alt="AI Assistant"><figcaption>Ask anything about your book.</figcaption></figure>
+
+  <h3>Settings</h3>
+  <p>Encrypted <strong>backups</strong> and <strong>restore</strong>, a plain <strong>data export</strong>, your own details, and reminder preferences.</p>
+  <figure><img src="screenshots/10-settings.png" alt="Settings"><figcaption>Backups and preferences.</figcaption></figure>
+
+  <h2 id="flows">3. The everyday flows</h2>
+
+  <h3>A. Your morning</h3>
+  <ol><li>Open the app → <strong>Dashboard</strong>.</li><li>Read the <strong>AI briefing</strong> and <strong>Next best action</strong> at the top.</li><li>Click into <strong>Renewals</strong> to clear what's overdue/due.</li></ol>
+
+  <h3>B. Renewal reminder in one tap <span class="pill">headline flow</span></h3>
+  <ol>
+    <li>On <strong>Renewals</strong> (or a client's profile), click <strong>✨ Draft</strong>.</li>
+    <li>The app instantly writes a message using that client's real name, policy number, premium and due date — in <strong>English or Telugu</strong>. Edit if you like.</li>
+    <li>Optionally attach their <strong>policy copy / renewal notice</strong> with the paperclip.</li>
+    <li>Click <strong>Send on WhatsApp</strong> — it sends from your number <strong>and logs it</strong> to their Timeline.</li>
+  </ol>
+  <figure><img src="screenshots/11-ai-draft-modal.png" alt="AI draft to WhatsApp"><figcaption>One-click AI draft → WhatsApp send.</figcaption></figure>
+  <div class="note">If WhatsApp isn't connected at that moment, the button becomes <strong>Open in WhatsApp</strong> (wa.me) so you can still send manually — nothing breaks.</div>
+
+  <h3>C. Loading a batch of renewals</h3>
+  <ol><li><strong>Import</strong> → upload the Excel sheet and/or a folder of PDFs.</li><li>The app reads them, <strong>auto-attaches</strong> the confident matches, and shows a <strong>Review Queue</strong>.</li><li>Confirm the uncertain ones (it remembers your choices for next time).</li></ol>
+
+  <h3>D. Upload &amp; scan a single document</h3>
+  <ol><li>On a client's <strong>Documents</strong> tab, choose <strong>Upload &amp; Scan</strong>.</li><li>The app reads the file, updates the policy's premium/due date if newer, files it in the right bucket, and shows a “fields updated” summary — no manual typing.</li></ol>
+
+  <h3>E. Working a lead to a sale</h3>
+  <ol><li><strong>Leads</strong> → <strong>Add lead</strong>, or move an existing one along the pipeline.</li><li>When you win it, click <strong>Convert to policy holder</strong> — it becomes a real client and opens their new folder.</li></ol>
+
+  <h2 id="data">4. How your data flows</h2>
+  <p>Solid arrows stay <strong>on your PC</strong>; dotted arrows are the <strong>only</strong> things that go out — and only when you act.</p>
+  <pre>  You (browser)
+        |  (stays on your PC)
+        v
+  CRM server  --&gt;  SQLite database file   (all client / policy / lead / task data)
+        |     \-&gt;  /storage               (uploaded documents, ENCRYPTED)
+        |
+        |- - -&gt;  Claude AI     only when you use an AI feature; sends names,
+        |                      policies, renewals, leads, tasks. NEVER Aadhaar/PAN.
+        |
+        \- - -&gt;  WhatsApp      only when you press Send; from your own number.</pre>
+  <p><strong>What this means in practice:</strong></p>
+  <ul>
+    <li><strong>All your data sits in one file on your PC</strong> — <code>prisma/dev.db</code>. Backing that up (plus <code>/storage</code> and <code>.env</code>) backs up everything.</li>
+    <li><strong>Aadhaar, PAN and uploaded documents are encrypted</strong> before they're saved (AES-256, the same standard banks use). On screen, IDs are masked (e.g. <code>XXXX XXXX 1234</code>) until you click to reveal. The encryption key lives in your <code>.env</code> file and never leaves the PC.</li>
+    <li><strong>The AI only ever receives non-sensitive facts.</strong> Before any text is sent to Claude, the app also scrubs anything that looks like an Aadhaar or PAN number, as a second safety net. AI runs on <em>your</em> Anthropic key; if the key is blank, the AI features simply turn off and everything else keeps working.</li>
+    <li><strong>WhatsApp uses your own linked number</strong> — no third-party messaging company in the middle, which is why there's no monthly fee.</li>
+  </ul>
+
+  <h2 id="disk">5. Where things are on disk</h2>
+  <table>
+    <tr><th>Path</th><th>What it holds</th></tr>
+    <tr><td><code>prisma/dev.db</code></td><td><strong>The database</strong> — every client, policy, lead, task, message</td></tr>
+    <tr><td><code>/storage</code></td><td>Uploaded documents, <strong>encrypted</strong></td></tr>
+    <tr><td><code>.env</code></td><td>Your secret keys (encryption key, Anthropic key) — never share this</td></tr>
+    <tr><td><code>.wwebjs_auth</code></td><td>Your saved WhatsApp login (so you don't re-scan)</td></tr>
+    <tr><td><code>Start CRM.cmd</code></td><td>Double-click to run the app (no terminal needed)</td></tr>
+  </table>
+
+  <h2 id="safe">6. Keeping it safe</h2>
+  <ul>
+    <li><strong>Backups:</strong> Settings → <strong>encrypted backup</strong> (database + documents, locked with a passphrase you choose). Keep a copy on a USB or your own cloud. <strong>Restore</strong> brings it back. Do this regularly.</li>
+    <li><strong>The <code>.env</code> file is the master key.</strong> If you lose it, encrypted data can't be recovered. Keep it (and your backup passphrase) somewhere safe.</li>
+    <li><strong>Treat the PC like a vault.</strong> Since everything is local, your client data's security is this computer's security — use a login password and don't leave it unlocked.</li>
+  </ul>
+
+  <h2 id="run">7. Running the app</h2>
+  <ul>
+    <li>Double-click the <strong>Insurance CRM</strong> icon on your Desktop (or <code>Start CRM.cmd</code>).</li>
+    <li>Keep the black window open while you work; close it to quit.</li>
+    <li>After any update to the app, double-click <code>Update CRM.cmd</code> once, then start as usual.</li>
+    <li>Full instructions are in <code>START HERE.txt</code>.</li>
+  </ul>
+
+  <hr>
+  <p style="color:var(--ink3);font-size:13px;text-align:center;">Everything you see flows from one local database, protected on your own machine, with AI and WhatsApp as opt-in helpers you control.</p>
+
+</div>
+</body>
+</html>

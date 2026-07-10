@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────
+   Design tokens — warm "fine stationery" neutrals + intentional
+   indigo/violet accent, with emerald (money) and amber→red (risk).
+   ────────────────────────────────────────────────────────────── */
+:root {
+  /* surfaces (warm paper white, not cold gray) */
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-2: #fbfbf9;
+  --surface-3: #f1f0ec;
+
+  /* ink */
+  --ink: #1b1a17;
+  --ink-2: #57564f;
+  --ink-3: #706f67; /* AA contrast on paper/surface for small text */
+  --ink-4: #96958c;
+
+  /* borders */
+  --border: #e9e8e2;
+  --border-2: #dedcd4;
+
+  /* accent — indigo / violet */
+  --accent: #4f46e5;
+  --accent-600: #4338ca;
+  --accent-700: #3730a3;
+  --accent-50: #eef0ff;
+  --accent-100: #e0e2ff;
+  --violet: #7c5cff;
+
+  /* semantic */
+  --emerald: #0e9f6e;
+  --emerald-50: #e6f7f0;
+  --emerald-700: #047a55;
+  --amber: #e8930c;
+  --amber-50: #fdf2dd;
+  --amber-700: #b06f08;
+  --red: #e02424;
+  --red-50: #fcebeb;
+  --red-700: #b01c1c;
+
+  /* soft layered shadows (depth, not borders) */
+  --shadow-sm: 0 1px 2px rgba(20, 19, 16, 0.04), 0 1px 3px rgba(20, 19, 16, 0.04);
+  --shadow: 0 1px 2px rgba(20, 19, 16, 0.04), 0 4px 12px rgba(20, 19, 16, 0.05);
+  --shadow-lg: 0 2px 4px rgba(20, 19, 16, 0.04), 0 12px 32px rgba(20, 19, 16, 0.08);
+
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100vw;
+}
+
+body {
+  color: var(--ink);
+  background: var(--bg);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* tabular figures for all money/metric numbers so digits don't jiggle */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── component utilities ── */
+@layer components {
+  .card {
+    @apply rounded-2xl bg-[var(--surface)];
+    border: 0.5px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-hover {
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+    border-color: var(--border-2);
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .pill-red { background: var(--red-50); color: var(--red-700); }
+  .pill-amber { background: var(--amber-50); color: var(--amber-700); }
+  .pill-green { background: var(--emerald-50); color: var(--emerald-700); }
+  .pill-accent { background: var(--accent-50); color: var(--accent-700); }
+  .pill-gray { background: var(--surface-3); color: var(--ink-2); }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition;
+    border: 0.5px solid var(--border-2);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .btn:hover { background: var(--surface-2); box-shadow: var(--shadow-sm); }
+  .btn:active { transform: scale(0.98); }
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+  }
+  .btn-accent:hover { background: var(--accent-600); }
+
+  .preview-tag {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium;
+    background: var(--accent-50);
+    color: var(--accent-700);
+  }
+}
+
+/* visible keyboard focus everywhere (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* premium select styling — replaces the raw native look (options list stays native) */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23706f67' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 1.9rem !important;
+  cursor: pointer;
+}
+select:hover { border-color: var(--accent) !important; }
+
+/* comfortable touch targets on coarse pointers (phones/tablets) */
+@media (pointer: coarse) {
+  button, a.btn, .btn, select, input[type="checkbox"] {
+    min-height: 44px;
+  }
+  .pill { min-height: 24px; }
+}
+
+/* respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.pop-in { animation: pop-in 0.4s ease both; }

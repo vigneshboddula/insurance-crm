@@ -1,0 +1,38 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# secrets & local data — NEVER commit these
+.env
+.env.local
+
+# database (contains client data)
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# encrypted document storage (contains client data)
+/storage/
+
+# restored backup output (contains client data)
+/restore/
+
+# whatsapp session (Phase 3 — your linked account)
+/.wwebjs_auth/
+/.wwebjs_cache/
+
+# misc
+.DS_Store
+*.log
+
+# stray documents / spreadsheets dropped in the project folder (never code)
+*.pdf
+*.PDF
+*.xlsx
+*.xls

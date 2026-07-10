@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($ok=$false; for\\($i=0;$i -lt 40;$i++\\){ try { $r=Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing -TimeoutSec 3; if\\($r.StatusCode -eq 200\\){ Write-Output \"READY status=$\\($r.StatusCode\\) length=$\\($r.Content.Length\\)\"; $ok=$true; break } } catch { Start-Sleep -Milliseconds 1500 } }; if\\(-not $ok\\){ Write-Output \"NOT-READY-yet\" })"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+INSURANCE CRM — how to run it (no terminal needed)
+====================================================
+
+EVERYDAY USE
+------------
+1. Double-click  "Start CRM"  (or the "Insurance CRM" icon on your Desktop).
+2. A black window opens and your browser opens the app at http://localhost:3000.
+3. KEEP THE BLACK WINDOW OPEN while you use the app.
+4. When you're done for the day, close the black window to shut it down.
+
+(If you double-click it again while it's already running, it just re-opens
+ the app in your browser — it won't start a second copy.)
+
+
+ONE-TIME: PUT AN ICON ON YOUR DESKTOP
+-------------------------------------
+Double-click  "Create Desktop Shortcut"  once. After that you can launch the
+app from the "Insurance CRM" icon on your Desktop.
+
+(Optional) To make it start by itself every time you turn on the PC:
+  - Press Windows key + R, type   shell:startup   and press Enter.
+  - Copy the "Insurance CRM" Desktop icon into the folder that opens.
+
+
+AFTER THE APP HAS BEEN UPDATED
+------------------------------
+If your developer changes the app, double-click  "Update CRM"  once,
+then start it as usual.
+
+
+WANT TO UNDERSTAND THE WHOLE APP?
+---------------------------------
+Open the illustrated guide:  docs\GUIDE.html
+(double-click it — it opens in your browser with screenshots of every screen,
+ the everyday flows, and exactly how/where your data is stored.)
+
+
+GOOD TO KNOW
+------------
+- Everything stays on THIS computer. Your client data never leaves the PC.
+- The AI features and WhatsApp use your own keys/number that are already set up.
+- If anything looks wrong, close the black window and double-click "Start CRM"
+  again. If it still fails, send a photo of the black window to your developer.

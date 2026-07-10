@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "dattatreya-site",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npx --yes serve C:/Users/vigne/dattatreya-site -l 4321"],
+      "port": 4321
+    }
+  ]
+}

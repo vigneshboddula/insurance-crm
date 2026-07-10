@@ -1,0 +1,1 @@
+This app's live data (database + documents) lives in C:\Users\vigne\insurance-crm-data — outside OneDrive, so sync can never revert it. Do not put data files here.
