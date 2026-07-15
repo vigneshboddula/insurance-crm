@@ -1,36 +1,54 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Download, Upload, Search, Pencil, Check, X, CheckCircle2, AlertTriangle, Users } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Download, Upload, Search, Pencil, Check, X, CheckCircle2, AlertTriangle, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { importContacts, updateContact, type ContactImportResult } from "@/app/contacts/actions";
 
 export type Contact = { policyNumber: string; name: string; phone: string; email: string; carrier: string; policyType: string | null };
 
-type Filter = "all" | "no_phone" | "no_email";
+type Props = {
+  contacts: Contact[];
+  carriers: string[];
+  total: number;
+  page: number;
+  pageSize: number;
+  q: string;
+  filter: "all" | "no_phone" | "no_email";
+  carrier: string;
+  counts: { all: number; noPhone: number; noEmail: number };
+};
 
-export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carriers: string[] }) {
+// Filters / search / paging are server-side (URL params) so this stays fast at
+// 10k+ policies — the browser only renders one page of rows.
+export function ContactsView({ contacts, carriers, total, page, pageSize, q, filter, carrier, counts }: Props) {
   const router = useRouter();
+  const params = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
   const [, start] = useTransition();
-  const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [carrier, setCarrier] = useState<string>("");
+  const [term, setTerm] = useState(q);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ContactImportResult | null>(null);
   const [edit, setEdit] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ phone: string; email: string }>({ phone: "", email: "" });
 
-  const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return contacts.filter((c) => {
-      if (filter === "no_phone" && c.phone) return false;
-      if (filter === "no_email" && c.email) return false;
-      if (carrier && !c.carrier.toLowerCase().includes(carrier.toLowerCase())) return false;
-      if (t && ![c.name, c.policyNumber, c.phone, c.email, c.carrier].some((f) => f?.toLowerCase().includes(t))) return false;
-      return true;
-    });
-  }, [contacts, q, filter, carrier]);
+  useEffect(() => setTerm(q), [q]);
+
+  const setUrl = (next: { q?: string; filter?: string; carrier?: string; page?: number }) => {
+    const p = new URLSearchParams(params.toString());
+    if (next.q !== undefined) { next.q ? p.set("q", next.q) : p.delete("q"); p.delete("page"); }
+    if (next.filter !== undefined) { next.filter !== "all" ? p.set("filter", next.filter) : p.delete("filter"); p.delete("page"); }
+    if (next.carrier !== undefined) { next.carrier ? p.set("carrier", next.carrier) : p.delete("carrier"); p.delete("page"); }
+    if (next.page !== undefined) { next.page > 1 ? p.set("page", String(next.page)) : p.delete("page"); }
+    router.replace(`/contacts${p.size ? `?${p}` : ""}`);
+  };
+
+  const onSearch = (v: string) => {
+    setTerm(v);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => setUrl({ q: v.trim() }), 350);
+  };
 
   const onUpload = () => {
     const f = fileRef.current?.files?.[0];
@@ -51,12 +69,11 @@ export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carr
     start(async () => { await updateContact(policyNumber, draft.phone, draft.email); setEdit(null); router.refresh(); });
   };
 
-  const missingPhone = contacts.filter((c) => !c.phone).length;
-  const missingEmail = contacts.filter((c) => !c.email).length;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
 
-  const chip = (key: Filter, label: string, count?: number) => (
-    <button onClick={() => setFilter(key)} className="rounded-lg px-2.5 py-1 text-xs font-medium transition" style={filter === key ? { background: "var(--accent-50)", color: "var(--accent-700)" } : { background: "var(--surface-3)", color: "var(--ink-3)" }}>
-      {label}{count !== undefined ? ` (${count})` : ""}
+  const chip = (key: "all" | "no_phone" | "no_email", label: string, count: number) => (
+    <button onClick={() => setUrl({ filter: key })} className="rounded-lg px-2.5 py-1 text-xs font-medium transition" style={filter === key ? { background: "var(--accent-50)", color: "var(--accent-700)" } : { background: "var(--surface-3)", color: "var(--ink-3)" }}>
+      {label} ({count})
     </button>
   );
 
@@ -65,7 +82,7 @@ export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carr
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold text-ink"><Users size={18} /> Contacts</h1>
-          <p className="text-xs text-ink-3">{contacts.length} policies · download, fill phone/email offline, re-upload to bulk-update.</p>
+          <p className="text-xs text-ink-3">{total} {q || filter !== "all" || carrier ? "matching" : ""} policies · download, fill phone/email offline, re-upload to bulk-update.</p>
         </div>
         <div className="flex items-center gap-2">
           <a href="/api/contacts/export" className="btn"><Download size={15} /> Download Excel</a>
@@ -86,16 +103,16 @@ export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carr
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {chip("all", "All", contacts.length)}
-        {chip("no_phone", "Missing phone", missingPhone)}
-        {chip("no_email", "Missing Gmail", missingEmail)}
-        <select value={carrier} onChange={(e) => setCarrier(e.target.value)} className="rounded-lg border bg-surface px-2 py-1 text-xs" style={{ borderColor: "var(--border-2)" }}>
+        {chip("all", "All", counts.all)}
+        {chip("no_phone", "Missing phone", counts.noPhone)}
+        {chip("no_email", "Missing Gmail", counts.noEmail)}
+        <select value={carrier} onChange={(e) => setUrl({ carrier: e.target.value })} className="rounded-lg border bg-surface px-2 py-1 text-xs" style={{ borderColor: "var(--border-2)" }}>
           <option value="">All companies</option>
           {carriers.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <div className="relative ml-auto min-w-[200px] flex-1 sm:flex-none">
           <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="w-full rounded-lg border bg-surface py-1.5 pl-8 pr-2 text-sm outline-none focus:border-accent" style={{ borderColor: "var(--border-2)" }} />
+          <input value={term} onChange={(e) => onSearch(e.target.value)} placeholder="Search…" className="w-full rounded-lg border bg-surface py-1.5 pl-8 pr-2 text-sm outline-none focus:border-accent" style={{ borderColor: "var(--border-2)" }} />
         </div>
       </div>
 
@@ -113,15 +130,15 @@ export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carr
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c, i) => {
+            {contacts.map((c, i) => {
               const editing = edit === c.policyNumber;
               return (
                 <tr key={c.policyNumber} className="border-b last:border-0 hover:bg-surface-2" style={{ borderColor: "var(--border)" }}>
-                  <td className="px-3 py-2 text-ink-4 tnum">{i + 1}</td>
+                  <td className="px-3 py-2 text-ink-4 tnum">{(page - 1) * pageSize + i + 1}</td>
                   <td className="px-3 py-2 tnum text-ink-2">{c.policyNumber}</td>
                   <td className="px-3 py-2 font-medium text-ink">{c.name}</td>
                   <td className="px-3 py-2 tnum">
-                    {editing ? <input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} className="w-28 rounded border px-1.5 py-0.5 text-sm" style={{ borderColor: "var(--border-2)" }} /> : (c.phone || <span className="text-amber-700" style={{ color: "var(--amber-700)" }}>—</span>)}
+                    {editing ? <input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} className="w-28 rounded border px-1.5 py-0.5 text-sm" style={{ borderColor: "var(--border-2)" }} /> : (c.phone || <span style={{ color: "var(--amber-700)" }}>—</span>)}
                   </td>
                   <td className="px-3 py-2">
                     {editing ? <input value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} className="w-44 rounded border px-1.5 py-0.5 text-sm" style={{ borderColor: "var(--border-2)" }} /> : (c.email || <span style={{ color: "var(--amber-700)" }}>—</span>)}
@@ -140,10 +157,18 @@ export function ContactsView({ contacts, carriers }: { contacts: Contact[]; carr
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-ink-3">No contacts match.</td></tr>}
+            {contacts.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-ink-3">No contacts match.</td></tr>}
           </tbody>
         </table>
       </div>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-3 text-sm">
+          <button onClick={() => setUrl({ page: page - 1 })} disabled={page <= 1} className="btn disabled:opacity-40"><ChevronLeft size={15} /> Prev</button>
+          <span className="text-ink-3 tnum">Page {page} of {pages}</span>
+          <button onClick={() => setUrl({ page: page + 1 })} disabled={page >= pages} className="btn disabled:opacity-40">Next <ChevronRight size={15} /></button>
+        </div>
+      )}
     </div>
   );
 }

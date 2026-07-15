@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, FileText, Upload } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, FileText, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 import { inr, fmtDate, daysUntil } from "@/lib/format";
 import { labelOf, LINES, POLICY_STATUS } from "@/lib/enums";
 import { PoliciesAddDialog } from "./PoliciesAddDialog";
@@ -10,36 +11,55 @@ import { BulkUpload } from "@/components/policies/BulkUpload";
 
 type Policy = { id: string; clientId: string; clientName: string; line: string; carrier: string; policyNumber: string; planName: string | null; premium: number; sumAssured: number; renewalDate: string; startDate: string; status: string };
 
-const RECENT_DAYS = 30;
+type Props = {
+  policies: Policy[];
+  clients: { id: string; name: string }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  q: string;
+  view: "recent" | "all";
+  activePremium: number;
+};
 
-export function PoliciesView({ policies, clients }: { policies: Policy[]; clients: { id: string; name: string }[] }) {
-  const [q, setQ] = useState("");
-  const [view, setView] = useState<"recent" | "all">("recent");
+// Search + paging are server-side (URL-driven) so the page stays fast at 10k+
+// policies — this component only renders the current page of rows.
+export function PoliciesView({ policies, clients, total, page, pageSize, q, view, activePremium }: Props) {
+  const router = useRouter();
+  const params = useSearchParams();
   const [showBulk, setShowBulk] = useState(false);
+  const [term, setTerm] = useState(q);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const recentCutoff = Date.now() - RECENT_DAYS * 86_400_000;
-  const base = useMemo(() => (view === "recent" ? policies.filter((p) => new Date(p.startDate).getTime() >= recentCutoff) : policies), [view, policies, recentCutoff]);
+  useEffect(() => setTerm(q), [q]);
 
-  const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return base;
-    return base.filter((p) => [p.clientName, p.carrier, p.policyNumber, p.line, p.planName].some((f) => f?.toLowerCase().includes(t)));
-  }, [q, base]);
+  const setUrl = (next: { q?: string; view?: string; page?: number }) => {
+    const p = new URLSearchParams(params.toString());
+    if (next.q !== undefined) { next.q ? p.set("q", next.q) : p.delete("q"); p.delete("page"); }
+    if (next.view !== undefined) { next.view === "all" ? p.set("view", "all") : p.delete("view"); p.delete("page"); }
+    if (next.page !== undefined) { next.page > 1 ? p.set("page", String(next.page)) : p.delete("page"); }
+    router.replace(`/policies${p.size ? `?${p}` : ""}`);
+  };
 
-  const recentCount = policies.filter((p) => new Date(p.startDate).getTime() >= recentCutoff).length;
-  const totalPremium = base.filter((p) => p.status === "active").reduce((s, p) => s + p.premium, 0);
+  const onSearch = (v: string) => {
+    setTerm(v);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => setUrl({ q: v.trim() }), 350);
+  };
+
+  const pages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-ink">Policies · Recently Issued</h1>
-          <p className="text-xs text-ink-3">{view === "recent" ? `${recentCount} issued in the last ${RECENT_DAYS} days` : `${policies.length} policies`} · {inr(totalPremium)} premium</p>
+          <h1 className="text-lg font-semibold text-ink">Policies {view === "recent" ? "· Recently Issued" : ""}</h1>
+          <p className="text-xs text-ink-3">{total} {view === "recent" ? `issued in the last 30 days` : "policies"}{q ? ` matching “${q}”` : ""} · {inr(activePremium)} active premium</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg p-0.5" style={{ background: "var(--surface-3)" }}>
-            <button onClick={() => setView("recent")} className="rounded-md px-2.5 py-1 text-xs font-medium transition" style={view === "recent" ? { background: "var(--surface)", color: "var(--ink)" } : { color: "var(--ink-3)" }}>Recently issued</button>
-            <button onClick={() => setView("all")} className="rounded-md px-2.5 py-1 text-xs font-medium transition" style={view === "all" ? { background: "var(--surface)", color: "var(--ink)" } : { color: "var(--ink-3)" }}>All</button>
+            <button onClick={() => setUrl({ view: "recent" })} className="rounded-md px-2.5 py-1 text-xs font-medium transition" style={view === "recent" ? { background: "var(--surface)", color: "var(--ink)" } : { color: "var(--ink-3)" }}>Recently issued</button>
+            <button onClick={() => setUrl({ view: "all" })} className="rounded-md px-2.5 py-1 text-xs font-medium transition" style={view === "all" ? { background: "var(--surface)", color: "var(--ink)" } : { color: "var(--ink-3)" }}>All</button>
           </div>
           <button onClick={() => setShowBulk((v) => !v)} className="btn"><Upload size={15} /> Bulk upload</button>
           <PoliciesAddDialog clients={clients} />
@@ -50,19 +70,19 @@ export function PoliciesView({ policies, clients }: { policies: Policy[]; client
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by client, carrier, policy number…" className="w-full rounded-xl border bg-surface py-2.5 pl-9 pr-3 text-sm outline-none focus:border-accent" style={{ borderColor: "var(--border-2)", borderWidth: "0.5px" }} />
+        <input value={term} onChange={(e) => onSearch(e.target.value)} placeholder="Search by client, carrier, policy number…" className="w-full rounded-xl border bg-surface py-2.5 pl-9 pr-3 text-sm outline-none focus:border-accent" style={{ borderColor: "var(--border-2)", borderWidth: "0.5px" }} />
       </div>
 
-      {filtered.length === 0 ? (
+      {policies.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center">
           <FileText size={28} className="text-ink-4" />
-          <p className="mt-2 text-sm font-medium text-ink">{q ? "No policies match." : "No policies yet."}</p>
-          <p className="text-xs text-ink-3">Open a client and use “Add policy”.</p>
+          <p className="mt-2 text-sm font-medium text-ink">{q ? "No policies match." : view === "recent" ? "Nothing issued in the last 30 days." : "No policies yet."}</p>
+          <p className="text-xs text-ink-3">{q ? "Try another search." : "Use Bulk upload or Add policy above."}</p>
         </div>
       ) : (
         <div className="card overflow-hidden">
           <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
-            {filtered.map((p) => {
+            {policies.map((p) => {
               const d = daysUntil(p.renewalDate);
               const tone = p.status !== "active" ? "gray" : d < 0 ? "red" : d <= 14 ? "amber" : "green";
               return (
@@ -80,6 +100,14 @@ export function PoliciesView({ policies, clients }: { policies: Policy[]; client
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-3 text-sm">
+          <button onClick={() => setUrl({ page: page - 1 })} disabled={page <= 1} className="btn disabled:opacity-40"><ChevronLeft size={15} /> Prev</button>
+          <span className="text-ink-3 tnum">Page {page} of {pages}</span>
+          <button onClick={() => setUrl({ page: page + 1 })} disabled={page >= pages} className="btn disabled:opacity-40">Next <ChevronRight size={15} /></button>
         </div>
       )}
     </div>
