@@ -25,3 +25,23 @@ export async function markRenewed(policyId: string) {
   revalidatePath("/");
   revalidatePath(`/clients/${policy.clientId}`);
 }
+
+/** Create a "call this client about their renewal" task — used by the
+ *  escalation ladder when WhatsApp got no reply after 3 days. */
+export async function createCallTask(clientId: string, policyId: string, clientName: string, policyNumber: string) {
+  const existing = await prisma.task.findFirst({ where: { clientId, type: "call", status: { not: "completed" } } });
+  if (existing) return; // don't duplicate
+  await prisma.task.create({
+    data: {
+      clientId,
+      type: "call",
+      title: `Call ${clientName} — renewal ${policyNumber}`,
+      notes: `WhatsApp reminder sent >3 days ago with no reply. Call to follow up on renewal.`,
+      status: "open",
+      priority: "high",
+      dueDate: new Date(),
+    },
+  });
+  revalidatePath("/renewals");
+  revalidatePath("/tasks");
+}

@@ -3,7 +3,9 @@ import { RenewalsHub } from "@/components/renewals/RenewalsHub";
 import { RemindersDue } from "@/components/renewals/RemindersDue";
 import { RenewalUploadToggle } from "@/components/renewals/RenewalUploadToggle";
 import { MissingNotices } from "@/components/renewals/MissingNotices";
+import { TodayWorklist } from "@/components/renewals/TodayWorklist";
 import { getDueReminders } from "@/lib/reminders";
+import { getTodayWorklist } from "@/lib/renewal-worklist";
 import { daysUntil } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +21,7 @@ export default async function RenewalsPage() {
   const now = new Date();
   const since = new Date(now.getTime() - 90 * DAY);
 
-  const [policies, renewed, due, notices] = await Promise.all([
+  const [policies, renewed, due, notices, worklist] = await Promise.all([
     prisma.policy.findMany({
       where: { client: { archivedAt: null }, status: { in: ["active", "lapsed"] } },
       orderBy: { renewalDate: "asc" },
@@ -32,6 +34,7 @@ export default async function RenewalsPage() {
     }),
     getDueReminders(),
     prisma.document.findMany({ where: { type: "renewal_notice", policyId: { not: null } }, select: { policyId: true } }),
+    getTodayWorklist(now),
   ]);
 
   const hasNotice = new Set(notices.map((n) => n.policyId));
@@ -85,6 +88,7 @@ export default async function RenewalsPage() {
 
   return (
     <div className="space-y-4">
+      <TodayWorklist rows={worklist.rows} summary={worklist.summary} />
       <RenewalUploadToggle />
       <MissingNotices rows={missingNotice} />
       <RemindersDue due={due} />
