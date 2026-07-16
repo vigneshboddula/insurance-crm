@@ -66,6 +66,7 @@ model Client {
   tasks          Task[]
   communications Communication[]
   claims         Claim[]
+  endorsements   Endorsement[]
 
   @@index([phone])
   @@index([name])
@@ -177,6 +178,7 @@ model Policy {
   renewals       Renewal[]
   claims         Claim[]
   commission     Commission?
+  endorsements   Endorsement[]
   insuredMembers PolicyInsured[]
   versions       PolicyVersion[]
 
@@ -309,7 +311,9 @@ model Claim {
 model Endorsement {
   id          String    @id @default(cuid())
   policyId    String
+  policy      Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
   clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   type        String
   description String?
   status      String    @default("requested")

@@ -2,7 +2,9 @@ import { prisma } from "@/lib/db";
 import { ReportsView } from "@/components/reports/ReportsView";
 import { LeakagePanel } from "@/components/reports/LeakagePanel";
 import { DataHealthPanel } from "@/components/reports/DataHealthPanel";
+import { CommissionPanel } from "@/components/reports/CommissionPanel";
 import { getLeakage, getDataHealth } from "@/lib/book-health";
+import { getCommissions } from "@/lib/commissions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +15,14 @@ export default async function ReportsPage() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - (MONTHS - 1), 1);
 
-  const [policies, renewals, leads, comms, leak, health] = await Promise.all([
+  const [policies, renewals, leads, comms, leak, health, commissions] = await Promise.all([
     prisma.policy.findMany({ where: { client: { archivedAt: null } }, select: { startDate: true, premium: true, line: true } }),
     prisma.renewal.findMany({ where: { status: "renewed", renewedAt: { not: null } }, include: { policy: { select: { line: true } } } }),
     prisma.lead.findMany({ select: { stage: true, createdAt: true } }),
     prisma.communication.findMany({ select: { occurredAt: true } }),
     getLeakage(now),
     getDataHealth(now),
+    getCommissions(),
   ]);
 
   const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
@@ -63,6 +66,7 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-4">
       <ReportsView rows={shaped} generatedAt={now.toISOString()} />
+      <CommissionPanel rows={commissions.rows} summary={commissions.summary} />
       <LeakagePanel leak={leak} />
       <DataHealthPanel h={health} />
     </div>

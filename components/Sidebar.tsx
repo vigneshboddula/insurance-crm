@@ -6,7 +6,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import {
   LayoutDashboard, Users, FileText, Bell, Target, Stethoscope,
   CheckSquare, MessageCircle, Sparkles, Shield, Settings, Briefcase, Camera, Video,
-  MessagesSquare, BarChart3, Banknote, Contact,
+  MessagesSquare, BarChart3, Banknote, Contact, TrendingUp,
 } from "lucide-react";
 
 type Social = { linkedin: string | null; instagram: string | null; youtube: string | null };
@@ -19,11 +19,12 @@ const nav = [
   { href: "/renewals", label: "Renewals", icon: Bell },
   { href: "/collections", label: "Collections", icon: Banknote },
   { href: "/leads", label: "Leads", icon: Target },
-  { href: "/claims", label: "Claims", icon: Stethoscope },
+  { href: "/claims", label: "Service", icon: Stethoscope },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/communications", label: "Communications", icon: MessagesSquare },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/growth", label: "Growth", icon: TrendingUp },
   { href: "/assistant", label: "AI Assistant", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
